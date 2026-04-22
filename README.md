@@ -65,3 +65,59 @@ O fluxo de dados ocorre inteiramente em memória através de *Goroutines* e *Cha
 ```bash
 git clone [https://github.com/seu-usuario/aiops-node-agent.git](https://github.com/seu-usuario/aiops-node-agent.git)
 cd aiops-node-agent
+
+
+
+------------------------------------------------------
+Criar o modelo 100% em Go é uma excelente demonstração de fundamentos em ciência da computação. Isso elimina o ecossistema do Python, remove dependências de C (CGO/ONNX) e resulta em um binário puramente estático, o que é o "santo graal" para agentes de infraestrutura.
+
+Como você construirá a inteligência artificial do zero, sem bibliotecas externas, a Isolation Forest é o algoritmo ideal. Ele baseia-se em estruturas de dados (árvores binárias) em vez de cálculos matriciais complexos, casando perfeitamente com a tipagem forte do Go.
+
+Aqui está a arquitetura para implementar isso usando apenas a biblioteca padrão (como math e math/rand):
+
+1. Modelagem das Estruturas de Dados
+Você representará as florestas e árvores usando structs e ponteiros.
+
+Go
+type Point []float64 // Representa [CPU, RAM, Disco]
+
+type Node struct {
+	Left        *Node
+	Right       *Node
+	SplitColumn int     // Qual métrica foi usada para dividir
+	SplitValue  float64 // O valor do limiar da divisão
+	Size        int     // Quantidade de pontos neste nó
+}
+
+type IsolationForest struct {
+	Trees       []*Node
+	SampleSize  int
+	MaxTreeSize int
+}
+2. A Fase de "Treinamento" (Construção da Árvore)
+O treinamento consiste em gerar árvores aleatórias até isolar cada amostra de métrica coletada no período de warm-up do seu servidor.
+
+A Lógica: Crie uma função recursiva buildTree(data []Point, currentDepth int) *Node.
+
+Em cada nó, escolha aleatoriamente uma coluna (ex: Uso de CPU) e um valor aleatório entre o min e o max dessa métrica.
+
+Divida os dados em dois slices (menores que o valor vão para a esquerda, maiores vão para a direita).
+
+Pare a recursão quando o slice de dados tiver apenas 1 elemento ou a profundidade máxima for atingida.
+
+3. A Fase de Inferência (Cálculo da Anomalia)
+É aqui que o agente avalia as métricas em tempo real (a janela deslizante).
+
+Crie uma função pathLength(x Point, n *Node, currentDepth int) float64.
+
+Ela percorre a árvore descendo para a esquerda ou direita dependendo do valor da métrica de x.
+
+O retorno é a profundidade em que o ponto foi isolado.
+
+O Segredo Matemático: Faça a média do comprimento desse caminho em todas as árvores da sua estrutura IsolationForest. Pontos anômalos (como um pico bizarro de CPU) serão isolados muito rápido, resultando em um caminho curto.
+
+4. Gestão de Memória e Concorrência (Apontamento Técnico)
+Se o agente roda continuamente, a floresta precisa ser atualizada para não gerar falsos positivos com mudanças de padrão normais (concept drift).
+Em vez de retreinar tudo, use um Ring Buffer para as árvores. Crie uma Goroutine que, a cada X horas, descarta a árvore mais antiga do slice Trees e treina uma nova com os dados recentes, garantindo uso constante de memória pelo Garbage Collector do Go.
+
+Você prefere começar modelando a estrutura das árvores binárias ou focando primeiro no coletor bruto de métricas do sistema operacional para gerar o dataset inicial?
